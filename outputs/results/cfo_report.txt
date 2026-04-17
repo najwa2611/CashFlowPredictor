@@ -1,0 +1,8 @@
+RAPPORT CFO - ANALYSE DES RISQUES DE PAIEMENT
+==================================================
+
+• CUST_0451: retard de €10282 dû à customer_avg_historical_delay, avance de €778 grâce à ar_aging_days, retard de €450 dû à customer_payment_probability
+• CUST_0072: avance de €828 grâce à amount, retard de €781 dû à customer_avg_historical_delay, avance de €305 grâce à payment_terms_days
+• CUST_0371: retard de €2756 dû à amount, retard de €1175 dû à customer_avg_historical_delay, retard de €979 dû à size_large
+• CUST_0492: avance de €11541 grâce à customer_avg_historical_delay, avance de €837 grâce à payment_terms_days, avance de €687 grâce à amount
+• CUST_0017: retard de €2658 dû à customer_avg_historical_delay, retard de €2401 dû à payment_terms_days, avance de €720 grâce à amount
