@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cash Flow Predictor - CFO Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+    <div class="page-shell">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">Cash Flow Analytics</p>
+                <h1>Cash Flow Predictor</h1>
+                <p class="subtitle">Prévisions P10 / P50 / P90 pour vos factures clients, avec un score de risque clair et un rapport exportable.</p>
+            </div>
+            <div class="hero-badge">
+                <span>Modèle XGBoost</span>
+                <span>Rapport instantané</span>
+                <span>Fichier CSV prêt à l'emploi</span>
+            </div>
+        </header>
+
+        <section class="upload-card">
+            <div>
+                <h2>📁 Téléversez votre CSV de factures</h2>
+                <p>Le fichier doit contenir les variables attendues par le modèle. Si des colonnes manquent, l'outil vous le signalera.</p>
+            </div>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <input type="file" id="file" name="file" accept=".csv" required />
+                <button class="btn btn-primary" type="submit">Analyser les prévisions</button>
+            </form>
+            <p class="hint">Colonnes attendues : amount, payment_terms_days, ar_aging_days, customer_avg_historical_delay, customer_payment_probability, month, quarter, day_of_week, is_month_end, customer_invoice_count, size_large, size_medium, size_small</p>
+        </section>
+
+        <section id="result" class="results-shell hidden">
+            <div id="message" class="message"></div>
+
+            <div id="summary" class="summary-grid"></div>
+
+            <div id="table-section"></div>
+
+            <div id="download" class="download-action"></div>
+        </section>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').onsubmit = async (e) => {
+            e.preventDefault();
+
+            const resultSection = document.getElementById('result');
+            const messageDiv = document.getElementById('message');
+            const summaryDiv = document.getElementById('summary');
+            const tableSection = document.getElementById('table-section');
+            const downloadDiv = document.getElementById('download');
+
+            resultSection.classList.remove('hidden');
+            messageDiv.innerHTML = '<p class="status status-info">⏳ Analyse en cours...</p>';
+            summaryDiv.innerHTML = '';
+            tableSection.innerHTML = '';
+            downloadDiv.innerHTML = '';
+
+            const formData = new FormData();
+            formData.append('file', document.getElementById('file').files[0]);
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    messageDiv.innerHTML = `<p class="status status-error">❌ ${data.error}</p>`;
+                    return;
+                }
+
+                messageDiv.innerHTML = `<p class="status status-success">✅ ${data.message}</p>`;
+
+                summaryDiv.innerHTML = `
+                    <article class="summary-card">
+                        <span>Total factures</span>
+                        <strong>${data.summary.total_invoices}</strong>
+                    </article>
+                    <article class="summary-card">
+                        <span>Montant total</span>
+                        <strong>€${data.summary.total_amount.toLocaleString()}</strong>
+                    </article>
+                    <article class="summary-card">
+                        <span>Cash flow à risque</span>
+                        <strong>€${data.summary.at_risk_amount.toLocaleString()}</strong>
+                    </article>
+                    <article class="summary-card">
+                        <span>Délai moyen (P50)</span>
+                        <strong>${data.summary.avg_delay.toFixed(1)} jours</strong>
+                    </article>
+                `;
+
+                let tableHtml = `
+                    <div class="table-header">
+                        <h3>Top 10 factures à risque</h3>
+                        <p>Les factures sont classées par score de risque.</p>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Facture</th>
+                                    <th>Client</th>
+                                    <th>Montant</th>
+                                    <th>P10</th>
+                                    <th>P50</th>
+                                    <th>P90</th>
+                                    <th>Risque</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                data.predictions.forEach(p => {
+                    const riskClass = p.risk_level === 'HIGH' ? 'risk-high' : p.risk_level === 'MEDIUM' ? 'risk-medium' : 'risk-low';
+                    tableHtml += `
+                        <tr class="${riskClass}">
+                            <td>${p.invoice_id}</td>
+                            <td>${p.customer}</td>
+                            <td>€${p.amount.toLocaleString()}</td>
+                            <td>${p.P10.toFixed(1)}j</td>
+                            <td>${p.P50.toFixed(1)}j</td>
+                            <td>${p.P90.toFixed(1)}j</td>
+                            <td>${p.risk_level}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHtml += `</tbody></table></div>`;
+                tableSection.innerHTML = tableHtml;
+
+                downloadDiv.innerHTML = `<a href="/download/${data.filename}" class="btn btn-secondary">📥 Télécharger le rapport complet</a>`;
+            } catch (error) {
+                messageDiv.innerHTML = `<p class="status status-error">❌ Erreur : ${error.message}</p>`;
+            }
+        };
+    </script>
+</body>
+</html>
